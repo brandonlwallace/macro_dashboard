@@ -1,5 +1,4 @@
-# hw2-blwallac
-Brandon's U.S. Macroeconomic Health Flexdashboard 
+# U.S. Macroeconomic Health Flexdashboard 
 
 This flexdashboard is designed to provide an overview of macroeconomic conditions over time. 
 

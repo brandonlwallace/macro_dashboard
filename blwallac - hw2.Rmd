@@ -1,0 +1,353 @@
+---
+title: "U.S. Macroeconomic Health Flexdashboard"
+output: 
+ flexdashboard::flex_dashboard:
+   orientation: columns
+   source_code: embed 
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+#loading in the libraries necessary for this dashboard
+library(flexdashboard)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(DT)
+load('macro_data.rdata')  #cleaned dataframe is stored in a .rdata file. 
+```
+
+
+Labor Market
+==================
+
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+### Filters
+
+```{r context="render"}
+
+checkboxGroupInput("QUARTERS", "Quarters", choices = c("Q1", "Q2", "Q3", "Q4"),
+                   selected = c("Q1", "Q2", "Q3", "Q4"), inline = TRUE
+                   )
+
+#these are the filters for the first page. The default selection for the checkbox is to have all quarters shown.  
+
+dateRangeInput("DATE", "Custom date range:",
+                 start  = "2002-05-01",
+                 end    = "2022-05-01",
+                 min    = "2002-05-01",
+                 max    = "2022-05-01",
+                 format = "yy/mm/dd",
+                 separator = " - ")
+
+```
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Unemployment Rate Over Time
+
+```{r context="server"}
+
+macro_subset <- reactive({
+  macro_data %>%
+    filter(
+      DATE >= input$DATE[1],
+      DATE <= input$DATE[2],
+      QUARTERS %in% input$QUARTERS,
+    ) 
+})
+#this filtering is reactive to change upon user input.
+
+output$graph1 <- renderPlot({
+  ggplot(data = macro_subset(), aes(x = `DATE`, y = `UNRATE(%)`)) +
+     geom_line(color="black") + geom_point(color="blue") +
+    scale_x_date(date_breaks = "years" , date_labels = "'%y") +
+    labs(x = "Date", y = "Unemployment (%)")
+    
+  #this is a standard line chart, but the data on the x axis are scaled for readability. 
+})
+
+```
+
+```{r context="render"}
+plotOutput("graph1") #this outputs the graphic on the UI. 
+```
+
+### Percent Share of Population in the Workforce
+
+```{r context="server"}
+
+macro_subset2 <- reactive({
+  macro_data %>%
+    filter(
+      DATE >= input$DATE[1],
+      DATE <= input$DATE[2],
+      QUARTERS %in% input$QUARTERS,
+    ) 
+})
+
+#this filtering is the same as above, but it is passed to a new graphic. 
+
+output$graph2 <- renderPlot({
+ggplot(data = macro_subset2(), aes(x = `DATE`, y = `% SHARE OF WORKING POPULATION`)) +
+    geom_smooth(color="red", size = 1.5) +
+    labs(x = "Date", y = "(%) Share of Working Population")
+}) # the geom_smooth uses the default option to smooth the trend line. 
+
+```
+
+```{r context="render"}
+plotOutput("graph2") #output for the second graphic on the lower portion of the screen 
+```
+
+
+Housing Market
+==================
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+### Filter
+
+```{r context="render"}
+
+sliderInput("YEAR_RANGE", "Years:",
+            min = 2002,
+            max = 2022,
+            value = c(2002,2022),
+            sep = "", 
+            dragRange = TRUE) #this slider input has a drage range, so the user can move quickly in 10 or 5 year increments if they choose. 
+
+```
+
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+
+### U.S. National Home Price Index
+
+```{r context="server"}
+
+macro_subset3 <- reactive({
+  macro_data %>%
+    filter(
+      YEAR >= input$YEAR_RANGE[1],
+      YEAR <= input$YEAR_RANGE[2],
+    ) 
+}) # this version of the filter does not include quarters, since there is a new input on the second page. YEAR is based on a column I created which extracted the year from the date data. 
+
+output$graph3 <- renderPlot({
+  ggplot(data = macro_subset3(), aes(x = `DATE`, y = `CSUSHPISA`)) +
+    geom_line(color="black", linetype="dashed", size = 1) +
+    scale_x_date(date_breaks = "years" , date_labels = "%Y") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Date", y = "Home Price Index")
+}) #this graph also scales the x axis, but this sets the year to a 45 degree angle to maximize readibility. 
+```
+
+```{r context="render"}
+plotOutput("graph3") #output for the graphic on page two
+```
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+#### Household Indicators
+
+### Box 1
+
+```{r context="server"}
+
+macro_subset_box1 <- reactive({
+  macro_data %>%
+    filter(
+      YEAR >= input$YEAR_RANGE[1],
+      YEAR <= input$YEAR_RANGE[2],
+    ) 
+})
+
+#the renderValueBox uses flexdashboard:: in order to confirm the render function comes from the flexdashboard library. 
+output$supply_box <- flexdashboard::renderValueBox({
+  num1 <- round(mean(macro_subset_box1()$`MONTHLY HOME SUPPLY`), 2) 
+  flexdashboard::valueBox(value = num1, caption = "Home supply ratio, on average, in your selected date range", icon = "fa-home", color = "lightblue") 
+}) #I pass in an average with the mean function, and I set the icon to match the column.
+
+```
+
+
+```{r context="render"}
+
+flexdashboard::valueBoxOutput("supply_box") #the position of the valueBox is based on the Markdown hash tag headers.  
+
+```
+
+### Box 2
+
+```{r}
+
+macro_subset_box2 <- reactive({
+  macro_data %>%
+    filter(
+      YEAR >= input$YEAR_RANGE[1],
+      YEAR <= input$YEAR_RANGE[2],
+    ) 
+})
+
+output$monthly_payment <- flexdashboard::renderValueBox({
+  num2 <- round(mean(macro_subset_box2()$`MORTGAGE INT. MONTHLY AVG(%)`), 2) 
+  flexdashboard::valueBox(value = num2, caption = "Mortgage interest rate, on average, in your selected date range", icon = "fa-money", color = "yellow") 
+}) #this valuebox is the same as above, but it is based on a different column and displays a different average. 
+
+```
+
+```{r}
+flexdashboard::valueBoxOutput("monthly_payment") #second output for valueBox. This also uses the flexdashboard:: call to ensure the right function is used. 
+
+```
+
+### Box 3
+
+```{r}
+macro_subset_box3 <- reactive({
+  macro_data %>%
+    filter(
+      YEAR >= input$YEAR_RANGE[1],
+      YEAR <= input$YEAR_RANGE[2],
+    ) 
+})
+
+output$house_income <- flexdashboard::renderValueBox({
+  num3 <- round(mean(macro_subset_box3()$`MED HOUSEHOLD INCOME`, na.rm=TRUE), 2)  
+  flexdashboard::valueBox(value = num3, caption = "Median household income, on average, in your selected date range", icon = "fa-briefcase", color = "lightgreen")
+}) #since there are a handful of missing data from 2021/22, I set na.rm to True to force find the average rather than drop rows unncessarily. 
+```
+
+```{r}
+flexdashboard::valueBoxOutput("house_income") #output for valueBox
+```
+
+
+National Growth
+==================
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+### Filter
+
+```{r context="render"}
+
+dateRangeInput("Date_Picker", "Custom date range:",
+                 start  = "2002-05-01",
+                 end    = "2022-05-01",
+                 min    = "2002-05-01",
+                 max    = "2022-05-01",
+                 format = "yy/mm/dd",
+                 separator = " - ")
+#this filter is the same as the first page. It is included here for precision in selecting dates since specific dates are referenced on the UI. 
+```
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+
+### Inflation Rate over Time
+
+```{r context="server"}
+
+macro_subset5 <- reactive({
+  macro_data %>%
+    filter(
+      DATE >= input$Date_Picker[1],
+      DATE <= input$Date_Picker[2],
+    ) 
+}) #although these reactive functions looks similar, they are named different and have slight differences so that graphics on different pages do not try to pull in a user entry. 
+
+output$graph4 <- renderPlot({
+  ggplot(data = macro_subset5(), aes(x = `DATE`, y = `INFLATION(%)`)) +
+    geom_line(color="black", size = 0.5) +
+    scale_x_date(date_breaks = "years" , date_labels = "%Y") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_hline(yintercept= 2, color="orange", size=.5) +
+    annotate(geom="text", x=as.Date("2008-5-29"), y=7, 
+               label="U.S. Stock Market Collapse of 2008") +
+      annotate(geom="point", x=as.Date("2008-7-29"), y=5.5, size=15, shape=21, fill="transparent") +
+    labs(x = "Date", y = "Inflation (%)")
+}) #this graphic uses annotate to show the collapse of the stock market in September 2008 to give the user context.
+
+```
+
+```{r context="render"}
+
+plotOutput("graph4") #output for the first graphic. 
+
+```
+
+### Gross Domestic Product
+
+```{r}
+
+macro_subset6 <- reactive({
+  macro_data %>%
+    filter(
+      DATE >= input$Date_Picker[1],
+      DATE <= input$Date_Picker[2],
+    ) 
+})
+
+output$graph5 <- renderPlot({
+  ggplot(data = macro_subset6(), aes(x = `DATE`)) +
+    geom_line(aes(y = `GDP PER CAPITA`), color = "blue", size = 1.2) +
+    geom_line(aes(y = `QUARTERLY REAL GDP`), color = "red", size = 1.2) + 
+    scale_x_date(date_breaks = "years" , date_labels = "'%y") +
+     annotate(geom="text", x=as.Date("2008-5-29"), y=60000, 
+               label="GDP Per Capita") +
+     annotate(geom="text", x=as.Date("2012-5-29"), y=21000, 
+               label="Quarterly Real GDP") +
+    labs(x = "Date", y = "GDP")
+}) #this graphic also uses annotate to show the reader which line is which. I set this up instead of a legend, to keep everything in the UI on the same grid. A legend added clutter and distorted the view. 
+
+```
+
+
+```{r}
+plotOutput("graph5") #output for second graphic on the page. 
+```
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+
+### Months with inflation above the 2% target rate are conditionally formatted red.
+
+```{r}
+macro_subset7 <- reactive({
+  macro_data %>%
+    filter(
+      DATE >= input$Date_Picker[1],
+      DATE <= input$Date_Picker[2])  %>%
+    select(`DATE`, `INFLATION(%)`, `CORP. BOND YIELD(%)`, `GDP PER CAPITA`, `QUARTERLY REAL GDP`, `QUARTERLY GDP GROWTH RATE (%)`, `CPIALLITEMS`, `TOO HOT`)
+}) #this filter also selects only relevant columns for the user to see. I created the "too hot" column as binary indicator variable. This is 0 if inflation is less than two percent (note that there is also an orange line at 2% on the inflation graph on this page.) and 1 if inflation is greater than two percent. 
+
+output$data_table1 <- DT::renderDataTable({
+        DT::datatable(data = macro_subset7(),
+                      options = list(pageLength = 50), 
+                      rownames = FALSE) %>%
+        formatStyle('TOO HOT', target = 'row', backgroundColor = styleEqual(c(0, 1), c('lightskyblue', 'orangered'))) 
+
+}) #I use the "too hot" column here in order to conditionally format the table. 
+
+
+```
+
+```{r}
+
+dataTableOutput("data_table1") #final out for the table. 
+
+```
+
+
+
+

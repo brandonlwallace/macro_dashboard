@@ -1,0 +1,189 @@
+---
+title: "test space"
+author: "Brandon Wallace"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Ideas:
+
+For filters:
+1. by year in the date column 
+2. by month in a calendar
+3. by quarter
+
+Three Tabs:
+1. Employment
+    - Unemployment rate over time
+    - Share of working population
+    - Median Household Income
+2. Housing
+    - Average Mortgage
+    - National Home Price Index
+    - Monthly Home Supply (numeric box)
+3. GDP / Inflation
+    - Inflation
+    - Corporate Bond Yield (as table)
+    - GDP per capita (numeric box)
+    - Real GDP (numeric box)
+    
+or 
+
+For numeric boxes and gauges
+1. 3 - year average home price
+2. 3 - year average home supply
+3. 3 - year average household income
+```{r}
+library(readr)
+macro_data <- read_csv("~/carnegie mellon - r shiny/hw2blwallac/hw2-blwallac/us-macro-data-2002-2022.csv")
+```
+
+
+```{r}
+library(dplyr)
+macro_data$DATE <- as.Date(macro_data$DATE, format = "%d/%m/%Y")
+```
+
+
+```{r}
+summary(macro_data)
+which(is.na(macro_data))
+```
+
+
+```{r}
+
+macro_data$YEAR <- format(macro_data$DATE, "%Y")
+macro_data$YEAR <- as.numeric(macro_data$YEAR)
+macro_data$QUARTERS <- quarters(macro_data$DATE)  
+
+```
+
+
+```{r}
+macro_data$`TOO HOT` <- ifelse(macro_data$`INFLATION(%)` < 2, 0, 1)
+summary(macro_data)
+
+```
+
+
+```{r}
+save(macro_data, file = "macro_data.rdata")
+```
+
+
+### Labor Market
+
+Employment
+    - Unemployment rate over time
+    - Share of working population
+    - Median Household Income
+    
+Filters - any date plus quarters 
+
+```{r}
+
+ggplot(data = macro_data, aes(x = `DATE`, y = `% SHARE OF WORKING POPULATION`)) +
+  geom_smooth(color="red", size = 1.5) +
+  labs(title = "Percent Share of Population in the Workforce", x = "Date", y = "(%) Share of Working Population")
+
+```
+
+
+```{r}
+
+ggplot(data = macro_data, aes(x = `DATE`, y = `UNRATE(%)`)) +
+  geom_line(color="black") + geom_point(color="blue") +
+  scale_x_date(date_breaks = "years" , date_labels = "'%y") +
+  labs(title = "Unemployment Rate Over Time", x = "Date", y = "Unemployment (%)")
+
+```
+
+
+### Housing Market 
+
+2. Housing
+    - National Home Price Index
+    - Monthly Home Supply (numeric box)
+    - Median Household Income (numeric box)
+    - Household interest payment (numeric box)
+    
+Filters - slider dates 
+    
+```{r}
+
+ggplot(data = macro_data, aes(x = `DATE`, y = `CSUSHPISA`)) +
+  geom_line(color="black", linetype="dashed", size = 0.5) +
+  scale_x_date(date_breaks = "years" , date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "U.S. National Home Price Index", x = "Date", y = "Home Price Index")
+
+```
+
+
+```{r}
+
+mean(macro_data$`MED HOUSEHOLD INCOME`, na.rm=TRUE)
+```
+
+
+### GDP / Inflation
+    - Inflation over time
+    - read gdp and gdp per capita
+    - Corporate Bond Yield (as table)
+
+```{r}
+
+ggplot(data = macro_data, aes(x = `DATE`, y = `INFLATION(%)`)) +
+  geom_line(color="black", size = 0.5) +
+  scale_x_date(date_breaks = "years" , date_labels = "%Y") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_hline(yintercept= 2, color="orange", size=.5) +
+  annotate(geom="text", x=as.Date("2008-5-29"), y=7, 
+             label="U.S. Stock Market Collapse of 2008") +
+    annotate(geom="point", x=as.Date("2008-7-29"), y=5.5, size=5, shape=21, fill="transparent") +
+  labs(title = "Inflation Rate over Time", x = "Date", y = "Inflation (%)")
+```
+
+
+```{r}
+
+ggplot(data = macro_data, aes(x = `DATE`)) +
+  geom_line(aes(y = `GDP PER CAPITA`), color = "blue", size = 1.2) +
+  geom_line(aes(y = `QUARTERLY REAL GDP`), color = "red", size = 1.2) + 
+  scale_x_date(date_breaks = "years" , date_labels = "'%y") +
+   annotate(geom="text", x=as.Date("2008-5-29"), y=60000, 
+             label="GDP Per Capita") +
+   annotate(geom="text", x=as.Date("2012-5-29"), y=21000, 
+             label="Quarterly Real GDP") +
+  labs(title = "Gross Domestic Product", x = "Date", y = "GDP")
+
+
+```
+
+
+```{r}
+
+DT::datatable(data = macro_data,
+                      options = list(pageLength = 50), 
+                      rownames = FALSE) %>%
+        formatStyle('TOO HOT', target = 'row', backgroundColor = styleEqual(c(0, 1), c('lightskyblue', 'orangered'))) 
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
